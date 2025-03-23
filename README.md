@@ -1,8 +1,7 @@
 # 2025 WebGPU sandbox
 Small test of what this API can do. Shaders using [WGSL](https://gpuweb.github.io/gpuweb/wgsl) are really powerfull.
----
-![Example](https://github.com/user-attachments/assets/5f90081b-a1a6-44f4-b9a3-1be3ac75a6e1)
 
+![Example](https://github.com/user-attachments/assets/5f90081b-a1a6-44f4-b9a3-1be3ac75a6e1)
 
 ```wgsl
 @group(0) @binding(0) var<uniform> grid: vec2f;
