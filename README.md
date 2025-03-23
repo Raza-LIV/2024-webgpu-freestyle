@@ -1,6 +1,7 @@
 # 2025 WebGPU sandbox
 Small test of what this API can do. Shaders using [WGSL](https://gpuweb.github.io/gpuweb/wgsl) are really powerfull.
-![{Example}](https://github.com/user-attachments/assets/16f1b4bb-0d4c-45f5-957f-1c9b11108499)
+![Example](https://github.com/user-attachments/assets/e5e32162-7751-40ff-9311-13b5ea8df650)
+
 ```js
 const cellShaderModule = device.createShaderModule({
             label: "Cell shader",
