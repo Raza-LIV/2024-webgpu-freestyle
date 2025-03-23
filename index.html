@@ -8,6 +8,8 @@
     <canvas width="512" height="512">
     </canvas>
     <script type="module">
+        // INIT GRID
+        const GRID_SIZE = 32;
         // INIT CANVAS
         const canvas = document.querySelector("canvas");
         // CHECK FOR GPU
@@ -31,6 +33,15 @@
             device: device,
             format: canvasFormat,
         })
+        // INIT UNIFORM ARRAY
+        const uniformArray = new Float32Array([GRID_SIZE, GRID_SIZE]);
+        // INIT UNIFORM BUFFER
+        const uniformBuffer = device.createBuffer({
+            label: "Grid Uniforms",
+            size: uniformArray.byteLength,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+        device.queue.writeBuffer(uniformBuffer, 0, uniformArray);
         // INIT TRIANGLES TO DISPLAY SQUARE
         const vertices = new Float32Array([
             // TRIANGLE 1
@@ -63,9 +74,19 @@
         const cellShaderModule = device.createShaderModule({
             label: "Cell shader",
             code: `
+                @group(0) @binding(0) var<uniform> grid: vec2f;
+
                 @vertex
-                fn vertexMain(@location(0) pos: vec2f) -> @builtin(position) vec4f {
-                    return vec4f(pos, 0, 1);
+                fn vertexMain(
+                    @location(0) pos: vec2f,
+                    @builtin(instance_index) instance: u32
+                ) -> @builtin(position) vec4f {
+                    let i = f32(instance);
+                    let cell = vec2f(i % grid.x, floor(i / grid.x));
+                
+                    let cellOffset = cell / grid * 2;
+                    let gridPos = (pos + 1) / grid - 1 + cellOffset;
+                    return vec4f(gridPos, 0, 1);
                 }
 
                 @fragment
@@ -91,6 +112,15 @@
                 }]
             }
         });
+        // INIT BING GROUP
+        const bindGroup = device.createBindGroup({
+            label: "Cell renderer bind group",
+            layout: cellPipeline.getBindGroupLayout(0),
+            entries: [{
+                binding: 0,
+                resource: { buffer: uniformBuffer }
+            }],
+        });
         // INIT ENCODER
         const encoder = device.createCommandEncoder();
         // INIT DRAWING PASS
@@ -106,8 +136,10 @@
         pass.setPipeline(cellPipeline);
         // PASS VERTEX BUFFER
         pass.setVertexBuffer(0, vertexBuffer);
+        // PASS BIND GROUP
+        pass.setBindGroup(0, bindGroup);
         // DRAW
-        pass.draw(vertices.length / 2);
+        pass.draw(vertices.length / 2, GRID_SIZE * GRID_SIZE);
         // END DRAWING PASS
         pass.end()
         // COMMAND TO STOP DRAWING BUFFER PASSING
