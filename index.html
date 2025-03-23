@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>WebGPU Life</title>
+</head>
+<body>
+    <canvas width="512" height="512">
+    </canvas>
+    <script type="module">
+        // INIT CANVAS
+        const canvas = document.querySelector("canvas");
+        // CHECK FOR GPU
+        if (!navigator.gpu) {
+            throw new Error("WebGPU not supported on this browser.");
+        }
+        // INIT ADAPTER
+        const adapter = await navigator.gpu.requestAdapter();
+        // CHECK FOR ADAPTER
+        if (!adapter) {
+            throw new Error("No appropriate GPUAdapter found.");
+        }
+        // INIT DEVICE 
+        const device = await adapter.requestDevice();
+        // INIT CONTEXT
+        const context = canvas.getContext("webgpu");
+        // INIT CANVAS FORMAT
+        const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+        // CONFIGURE CANVAS
+        context.configure({
+            device: device,
+            format: canvasFormat,
+        })
+        // INIT TRIANGLES TO DISPLAY SQUARE
+        const vertices = new Float32Array([
+            // TRIANGLE 1
+            -0.8, -0.8,
+             0.8, -0.8,
+             0.8,  0.8,
+            // TRIANGLE 2 
+            -0.8, -0.8,
+             0.8,  0.8,
+            -0.8,  0.8,
+        ]);
+        // INIT VERTEX BUFFER
+        const vertexBuffer = device.createBuffer({
+            label: "Cell vertices",
+            size: vertices.byteLength,
+            usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
+        // PASS VERTEX BUFFER TO DEVICE QUEUE
+        device.queue.writeBuffer(vertexBuffer, /*bufferOffset=*/0, vertices);
+        //INIT VERTEX BUFFER LAYOUT
+        const vertexBufferLayout = {
+            arrayStride: 8,
+            attributes: [{
+                format: "float32x2",
+                offset: 0,
+                shaderLocation: 0,
+            }],
+        };
+        // INIT CELL SHADER MODULE
+        const cellShaderModule = device.createShaderModule({
+            label: "Cell shader",
+            code: `
+                @vertex
+                fn vertexMain(@location(0) pos: vec2f) -> @builtin(position) vec4f {
+                    return vec4f(pos, 0, 1);
+                }
+
+                @fragment
+                fn fragmentMain() -> @location(0) vec4f {
+                    return vec4f(1, 0, 0, 1);
+                }
+            `
+        });
+        // INIT VALUES FOR CELL PIPELINE
+        const cellPipeline = device.createRenderPipeline({
+            label: "Cell pipeline",
+            layout: "auto",
+            vertex: {
+                module: cellShaderModule,
+                entryPoint: "vertexMain",
+                buffers: [vertexBufferLayout]
+            },
+            fragment: {
+                module: cellShaderModule,
+                entryPoint: "fragmentMain",
+                targets: [{
+                    format: canvasFormat
+                }]
+            }
+        });
+        // INIT ENCODER
+        const encoder = device.createCommandEncoder();
+        // INIT DRAWING PASS
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [{
+                view: context.getCurrentTexture().createView(),
+                clearValue: { r: 0, g: 0, b: 0.4, a: 1 },
+                loadOp: "clear",
+                storeOp: "store",
+            }]
+        });
+        // PASS CELL DRAWING PIPELINE
+        pass.setPipeline(cellPipeline);
+        // PASS VERTEX BUFFER
+        pass.setVertexBuffer(0, vertexBuffer);
+        // DRAW
+        pass.draw(vertices.length / 2);
+        // END DRAWING PASS
+        pass.end()
+        // COMMAND TO STOP DRAWING BUFFER PASSING
+        const commandBuffer = encoder.finish();
+        // END PASSING DATA TO THE DEVICE QUEUE
+        device.queue.submit([commandBuffer]);
+        // COMMAND DEVICE QUEUE TO FINFISH ALL TASKS RECEIVE
+        device.queue.submit([encoder.finish()]);
+      </script>
+</body>
+</html>
